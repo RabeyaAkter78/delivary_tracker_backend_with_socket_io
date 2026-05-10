@@ -57,38 +57,51 @@ export function calculateTotals(item) {
   const total = subTotal + tax + deliveryFee;
 
   return {
-    subTotal:Math.round(subTotal*100)/100,
-    tax:Math.round(tax*100)/100,
+    subTotal: Math.round(subTotal * 100) / 100,
+    tax: Math.round(tax * 100) / 100,
     delivaryFee,
-    totalAmount:Math.round(total*100)/100
-
-  }
+    totalAmount: Math.round(total * 100) / 100,
+  };
 }
 
+export function crateOrderDocument(orderData, orderId, totals) {
+  return {
+    orderId,
+    customerName: orderData.customerName.trim(),
+    customerPhone: orderData.customerPhone.trim(),
+    customerAddress: orderData.customerAddress.trim(),
+    items: orderData.items,
+    subTotal: totals.subTotal,
+    tax: totals.tax,
+    delivaryFee: totals.delivaryFee,
+    totalAmount: totals.totalAmount,
+    specialNotes: orderData.specialNotes || "",
+    paymentMethod: orderData.paymentMethod || "cash",
+    paymentStatus: "pending",
+    status: "pending",
+    statusHistory: [
+      {
+        status: "pending",
+        Timestamp: new Date(),
+        by: "customer",
+        note: "Order Placed",
+      },
+    ],
+    estimatedTime: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
 
-export  function crateOrderDocument(orderData,orderId,totals){
-    return{
-        orderId,
-        customerName:orderData.customerName.trim(),
-        customerPhone:orderData.customerPhone.trim(),
-        customerAddress:orderData.customerAddress.trim(),
-        items:orderData.items,
-        subTotal:totals.subTotal,
-        tax:totals.tax,
-        delivaryFee:totals.delivaryFee,
-        totalAmount:totals.totalAmount,
-        specialNotes:orderData.specialNotes ||"",
-        paymentMethod:orderData.paymentMethod || "cash",
-        paymentStatus:"pending",
-        status:"pending",
-        statusHistory:[{
-            status:"pending",
-            Timestamp:new Date(),
-            by:"customer",
-            note:"Order Placed"
-        }],
-        estimatedTime:null,
-        createdAt:new Date(),
-        updatedAt:new Date()
-    }
+export function isValidSTatusTransition(currentStatus, newStatus) {
+  const validTransition = {
+    pending: ["confirmed", "cancelled"],
+    confirmed: ["preparing", "cancelled"],
+    preparing: ["ready", "cancelled"],
+    ready: ["out_for_delivery", "cancelled"],
+    out_for_delevery: ["delevered"],
+    delevered: [],
+    cancelled: [],
+  };
+  return validTransition[currentStatus]?.includes(newStatus) || false;
 }
