@@ -343,4 +343,108 @@ export const orderHandler = (io, socket) => {
       });
     }
   });
+
+  // reject order:
+  socket.on("rejectOrder", async (data, callback) => {
+    try {
+      if (!socket.isAdmin) {
+        return callback({
+          success: false,
+          message: "UnAuthorized",
+        });
+      }
+
+      const orderCollection = getCollection("orders");
+      const order = await orderCollection.findOne({ orderID: data.orderId });
+
+      if (!order || order.status === "pending") {
+        return callback({
+          success: false,
+          message: "Can not Reject this order",
+        });
+      }
+
+      const result = await orderCollection.findOneAndUpdate(
+        {
+          orderId: data.orderId,
+        },
+        { $set: { status: "cancelled", estimatedTime, updatedAt: new Date() } },
+        {
+          $push: {
+            statusHistory: {
+              status: "cancelled",
+              timeStamp: new Date(),
+              by: socket.id,
+              note: `Rejected by Admin.`,
+            },
+          },
+        },
+        { ReturnDocument: "after" },
+      );
+
+      io.to(`order-${data.orderId}`).emit("orderRejected", {
+        orderId: data.orderId,
+        reason: data.reason,
+      });
+
+      socket.on("admins").emit("orderRejectedByAdmin", { reason: data.reason });
+
+      callback: ({
+        success: true,
+      });
+    } catch (error) {
+      callback.error({
+        success: false,
+        message: "Faild to Reject orders",
+      });
+    }
+  });
+
+  // live stats:
+  socket.on("getLiveStats", async (data, callback) => {
+    try {
+      if (!socket.isAdmin) {
+        return callback({
+          success: false,
+          message: "UnAuthorized",
+        });
+      }
+      const orderCollection = getCollection("orders");
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const stats = {
+        totalToday: await orderCollection.countDocuments({
+          createdAt: { $gte: today },
+        }),
+        pending: await orderCollection.countDocuments({ status: "pending" }),
+        confirmed: await orderCollection.countDocuments({
+          status: "confirmed",
+        }),
+        preparing: await orderCollection.countDocuments({
+          status: "preparing",
+        }),
+        ready: await orderCollection.countDocuments({ status: "ready" }),
+        outForDelivary: await orderCollection.countDocuments({
+          status: "out_for_delivery",
+        }),
+        delevered: await orderCollection.countDocuments({
+          status: "delevered",
+        }),
+        cancelled: await orderCollection.countDocuments({
+          status: "cancelled",
+        }),
+      };
+
+      callback({
+        success: true,
+        stats,
+      });
+    } catch (error) {
+      callback.error({
+        success: false,
+        message: error.message,
+      });
+    }
+  });
 };
