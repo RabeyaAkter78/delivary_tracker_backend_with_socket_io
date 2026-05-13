@@ -282,4 +282,65 @@ export const orderHandler = (io, socket) => {
       });
     }
   });
+
+  // order accept/ reject:
+
+  socket.on("acceptOrder", async (data, callback) => {
+    try {
+      if (!socket.isAdmin) {
+        return callback({
+          success: false,
+          message: "UnAuthorized",
+        });
+      }
+
+      const orderCollection = getCollection("orders");
+      const order = await orderCollection.findOne({ orderID: data.orderId });
+
+      if (!order || order.status === "pending") {
+        return callback({
+          success: false,
+          message: "Can not Accept this order",
+        });
+      }
+
+      const estimatedTime = data.estimatedTime || 30;
+      const result = await orderCollection.findOneAndUpdate(
+        {
+          orderId: data.orderId,
+        },
+        { $set: { status: "confirmed", estimatedTime, updatedAt: new Date() } },
+        {
+          $push: {
+            statusHistory: {
+              status: "cinfirmed",
+              timeStamp: new Date(),
+              by: socket.id,
+              note: `Accepted with ${estimatedTime} min Estimated Time`,
+            },
+          },
+        },
+        { ReturnDocument: "after" },
+      );
+
+      io.to(`order-${data.orderId}`).emit("orderAccepted", {
+        orderId: data.orderId,
+        estimatedTime,
+      });
+
+      socket
+        .on("admins")
+        .emit("orderAcceptedByAdmin", { orderId: data.orderId });
+
+      callback: ({
+        success: true,
+        order: result,
+      });
+    } catch (error) {
+      callback.error({
+        success: false,
+        message: "Faild to Load orders",
+      });
+    }
+  });
 };
