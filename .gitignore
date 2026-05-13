@@ -18,3 +18,5 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+temp_auto_push.bat
+temp_interactive_push.bat
